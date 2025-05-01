@@ -1,0 +1,81 @@
+import os
+import pandas as pd
+import matplotlib.pyplot as plt
+
+def plot_water_quality(water_quality_chars, file_path="narrowresult.csv"):
+    """
+    Reads water quality data from the specified CSV file, filters for specified water quality characteristics,
+    and plots the results with each site represented as a separate line in chronological order.
+
+    Parameters:
+        water_quality_chars (list): A list of water quality characteristics to filter on (e.g., ['pH', 'DO']).
+        file_path (str): The path to the CSV file containing water quality data. Default is 'narrowresult.csv'.
+    """
+    # Check if the file exists
+    if not os.path.exists(file_path):
+        print(f"File not found: {file_path}")
+        return
+
+    # Read the CSV file
+    try:
+        df = pd.read_csv(file_path)
+    except Exception as e:
+        print(f"Error reading CSV file: {e}")
+        return
+
+    # Convert the 'DateTime' column to datetime objects
+    try:
+        df['DateTime'] = pd.to_datetime(df['ActivityStartDate'])
+    except Exception as e:
+        print(f"Error converting 'DateTime' column: {e}")
+        return
+
+    # Filter the DataFrame for the desired water quality characteristics
+    filtered_dfs = {}
+    for char in water_quality_chars:
+        filtered_df = df[df['CharacteristicName'] == char]
+        if filtered_df.empty:
+            print(f"No data found for water quality characteristic: {char}")
+        else:
+            filtered_dfs[char] = filtered_df
+
+    if not filtered_dfs:
+        print(f"No data found for any of the specified characteristics: {water_quality_chars}")
+        return
+
+    # Create the plot
+    num_chars = len(filtered_dfs)
+    plt.figure(figsize=(10, 6 * num_chars))
+
+    for i, char in enumerate(filtered_dfs):
+        plt.subplot(num_chars, 1, i + 1)  # Create subplots for each characteristic
+        
+        filtered_df = filtered_dfs[char]
+        for site, group in filtered_df.groupby('MonitoringLocationIdentifier'):
+            print(f"Characteristic: {char}, Site: {site}")
+            print(f"DateTime data type: {group['DateTime'].dtype}")
+            print(f"First few DateTime values: {group['DateTime'].head()}")
+
+            try:
+                group['DateTime'] = pd.to_datetime(group['DateTime'])
+                if group['DateTime'].isnull().any():
+                    print(f"Warning: NaN values found in DateTime for Site {site}")
+
+                # Sort the group by DateTime before plotting
+                group = group.sort_values(by='DateTime')
+
+                plt.plot(group['DateTime'], group['ResultMeasureValue'], marker='o', label=site)
+            except Exception as e:
+                print(f"Error converting DateTime for Site {site}: {e}")
+
+        plt.xlabel("Time")
+        plt.ylabel("Measured Value")
+        plt.title(f"Water Quality Characteristic: {char}")
+        plt.xticks(rotation=45)
+        plt.legend(title="Site")
+        plt.tight_layout()
+
+    plt.show()
+
+# Example usage:
+# plot_water_quality(['Bromide', 'Iron'])
